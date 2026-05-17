@@ -41,6 +41,8 @@ let genesMap = {
   'F_AOE': 'https://i.imgur.com/c2geO8E.png',
   'F': 'https://i.imgur.com/6YzwR72.png'
 };
+let mutantStatsCsvLoaded = false;
+
 
 async function loadAbilitiesCsv(url) {
   try {
@@ -293,9 +295,105 @@ function fillMutantInfo(id) {
   }
 }
 
+function findMutantFromCalcId(id) {
+  if (!window.BloggerMutants || !window.BloggerMutants.mutantsData) return null;
+  const candidate = String(id || '').trim();
+  if (!candidate) return null;
+  let mutant = window.BloggerMutants.getMutantFromCsv(candidate);
+  if (mutant) return mutant;
+  const normalized = candidate.replace(/^specimen_/i, '');
+  if (normalized !== candidate) {
+    mutant = window.BloggerMutants.getMutantFromCsv(normalized);
+    if (mutant) return mutant;
+  }
+  if (!/^specimen_/i.test(candidate)) {
+    mutant = window.BloggerMutants.getMutantFromCsv('Specimen_' + candidate);
+    if (mutant) return mutant;
+  }
+  const lower = candidate.toLowerCase();
+  return window.BloggerMutants.mutantsData.find(item => {
+    return String(item.specimen || '').toLowerCase() === lower ||
+      String(item.name || '').toLowerCase() === lower ||
+      String(item.specimen || '').toLowerCase() === ('specimen_' + lower);
+  }) || null;
+}
+
+async function ensureMutantStatsLoaded() {
+  if (!window.BloggerMutants) return false;
+  if (mutantStatsCsvLoaded) return true;
+  try {
+    await window.BloggerMutants.loadStatsCsv(statsUrl);
+    mutantStatsCsvLoaded = true;
+    return true;
+  } catch (e) {
+    console.error('error loading mutant stats csv', e);
+    return false;
+  }
+}
+
+function renderCalcMessage(message) {
+  const el = document.getElementById('calcMessage');
+  if (el) el.textContent = message || '';
+}
+
+function renderCalcResults(result) {
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value != null ? String(value) : '-';
+  };
+  setText('calcLife', result.lifeF);
+  setText('calcSpeed', result.speedF);
+  setText('calcAtk1', result.atk1F);
+  setText('calcAtk2', result.atk2F);
+  setText('calcAtk1Ability', result.atk1AbilityF);
+  setText('calcAtk2Ability', result.atk2AbilityF);
+}
+
+async function calculateStats() {
+  const specimenInput = document.getElementById('calcSpecimenInput');
+  const levelInput = document.getElementById('calcLevelInput');
+  if (!specimenInput || !levelInput) return;
+  const specimenId = specimenInput.value.trim() || getSpecimenId();
+  const levelValue = Math.max(25, parseInt(levelInput.value, 10) || 25);
+  levelInput.value = levelValue;
+  if (!specimenId) {
+    renderCalcMessage('Ingrese un ID válido.');
+    return;
+  }
+  renderCalcMessage('Cargando datos...');
+  const loaded = await ensureMutantStatsLoaded();
+  if (!loaded) {
+    renderCalcMessage('No se pudo cargar la base de datos de stats.');
+    return;
+  }
+  const mutant = findMutantFromCalcId(specimenId);
+  if (!mutant) {
+    renderCalcMessage('Mutant no encontrado: ' + specimenId);
+    return;
+  }
+  renderCalcMessage('');
+  const result = window.BloggerMutants.calculateMutantStats(mutant, levelValue, 'platinum', 0);
+  renderCalcResults(result);
+}
+
+function initCalcSection() {
+  const button = document.getElementById('calcButton');
+  const levelInput = document.getElementById('calcLevelInput');
+  if (button) button.addEventListener('click', calculateStats);
+  if (levelInput) {
+    levelInput.addEventListener('change', () => {
+      if (parseInt(levelInput.value, 10) < 25) levelInput.value = 25;
+    });
+  }
+  const specimenInput = document.getElementById('calcSpecimenInput');
+  if (specimenInput) specimenInput.value = getSpecimenId();
+  calculateStats();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   await loadAbilitiesCsv('https://raw.githubusercontent.com/GalaxyDegen01/dbmgrouplabs/refs/heads/main/abilitiesconfig.csv');
   await loadStatsCsv();
   const id = getSpecimenId();
   if (id) fillMutantInfo(id);
+  initCalcSection();
 });
