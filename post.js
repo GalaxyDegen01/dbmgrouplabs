@@ -296,7 +296,7 @@ function fillMutantInfo(id) {
 }
 
 function findMutantFromCalcId(id) {
-  if (!window.BloggerMutants || !window.BloggerMutants.mutantsData) return null;
+  if (!window.BloggerMutants || typeof window.BloggerMutants.getMutantFromCsv !== 'function') return null;
   const candidate = String(id || '').trim();
   if (!candidate) return null;
   let mutant = window.BloggerMutants.getMutantFromCsv(candidate);
@@ -310,12 +310,7 @@ function findMutantFromCalcId(id) {
     mutant = window.BloggerMutants.getMutantFromCsv('Specimen_' + candidate);
     if (mutant) return mutant;
   }
-  const lower = candidate.toLowerCase();
-  return window.BloggerMutants.mutantsData.find(item => {
-    return String(item.specimen || '').toLowerCase() === lower ||
-      String(item.name || '').toLowerCase() === lower ||
-      String(item.specimen || '').toLowerCase() === ('specimen_' + lower);
-  }) || null;
+  return null;
 }
 
 async function ensureMutantStatsLoaded() {
@@ -349,11 +344,17 @@ function renderCalcResults(result) {
   setText('calcAtk2Ability', result.atk2AbilityF);
 }
 
+function renderCalcUsedSpecimen(specimen) {
+  const el = document.getElementById('calcUsedSpecimen');
+  if (el) el.textContent = specimen || 'desconocido';
+}
+
 async function calculateStats() {
   const specimenInput = document.getElementById('calcSpecimenInput');
   const levelInput = document.getElementById('calcLevelInput');
-  if (!specimenInput || !levelInput) return;
-  const specimenId = specimenInput.value.trim() || getSpecimenId();
+  if (!levelInput) return;
+  const specimenId = (specimenInput ? specimenInput.value.trim() : '') || getSpecimenId();
+  renderCalcUsedSpecimen(specimenId);
   const levelValue = Math.max(25, parseInt(levelInput.value, 10) || 25);
   levelInput.value = levelValue;
   if (!specimenId) {
@@ -387,6 +388,7 @@ function initCalcSection() {
   }
   const specimenInput = document.getElementById('calcSpecimenInput');
   if (specimenInput) specimenInput.value = getSpecimenId();
+  renderCalcUsedSpecimen(getSpecimenId());
   calculateStats();
 }
 
