@@ -1,6 +1,6 @@
 (function(window){
-  const statsUrl = 'https://raw.githubusercontent.com/GalaxyDegen01/dbmgrouplabs/refs/heads/main/Stats.csv';
-  const abilitiesUrl = 'https://raw.githubusercontent.com/GalaxyDegen01/dbmgrouplabs/refs/heads/main/abilitiesconfig.csv';
+  const statsUrl = 'https://cdn.jsdelivr.net/gh/GalaxyDegen01/dbmgrouplabs@main/Stats.csv';
+  const abilitiesUrl = 'https://cdn.jsdelivr.net/gh/GalaxyDegen01/dbmgrouplabs@main/abilitiesconfig.csv';
   let statsData = {};
   let abilitiesConfig = {};
   const genesMap = {
