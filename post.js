@@ -1,4 +1,4 @@
-// Externalized JS from post.html — contains Swiper init and dynamic CSV-driven logic
+// Externalized JS from post.html — Swiper init and dynamic API-driven logic
 document.addEventListener('DOMContentLoaded', function () {
   // Swiper initialization
   try {
@@ -20,10 +20,9 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
-// script dinámico para rellenar según CSV
-const statsUrl = 'https://raw.githubusercontent.com/GalaxyDegen01/dbmgrouplabs/refs/heads/main/Stats.csv';
-let statsData = {};
-const defaultSpecimen = 'Specimen_CC_12';
+// Configuración global y mapeos
+const apiBaseUrl = 'http://mgfree.rf.gd/api/v1/specimens/';
+const defaultSpecimen = 'Specimen_A_01';
 let abilitiesConfig = {};
 let genesMap = {
   'A_AOE': 'https://i.imgur.com/sIcJZzv.png',
@@ -41,8 +40,6 @@ let genesMap = {
   'F_AOE': 'https://i.imgur.com/c2geO8E.png',
   'F': 'https://i.imgur.com/6YzwR72.png'
 };
-let mutantStatsCsvLoaded = false;
-
 
 async function loadAbilitiesCsv(url) {
   try {
@@ -55,12 +52,23 @@ async function loadAbilitiesCsv(url) {
       if (!line) continue;
       const parts = line.split('|');
       if (parts.length < 2) continue;
-      const specimen = parts[0].trim();
-      const appliesTo = parts[1].trim();
-      abilitiesConfig[specimen] = appliesTo;
+      abilitiesConfig[parts[0].trim()] = parts[1].trim();
     }
   } catch (e) {
-    console.error('error loading abilities config', e);
+    console.error('Error loading abilities config', e);
+  }
+}
+
+// Función principal para consumir tu API REST
+async function fetchSpecimenData(id) {
+  try {
+    const res = await fetch(`${apiBaseUrl}${id}`);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    console.error(`Error al consultar la API para ${id}:`, e);
+    return null;
   }
 }
 
@@ -78,43 +86,6 @@ function parseUnlockAttack(unlockAttack) {
     }
   });
   return genes;
-}
-
-async function loadGenesMapping(path = 'genes.txt') {
-  try {
-    const res = await fetch(path);
-    const text = await res.text();
-    const lines = text.trim().split(/\r?\n/);
-    lines.forEach(line => {
-      const m = line.split(':');
-      if (m.length >= 2) {
-        const key = m[0].trim();
-        const url = m.slice(1).join(':').trim();
-        if (key && url) genesMap[key.toUpperCase()] = url;
-      }
-    });
-  } catch (e) {
-    console.warn('could not load genes mapping', e);
-  }
-}
-
-async function loadStatsCsv() {
-  try {
-    const res = await fetch(statsUrl);
-    const text = await res.text();
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) return;
-    const headers = lines[0].split('|').map(h => h.trim());
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split('|');
-      if (cols.length !== headers.length) continue;
-      const obj = {};
-      headers.forEach((h,j) => obj[h] = cols[j]);
-      statsData[obj['Specimen']] = obj;
-    }
-  } catch (e) {
-    console.error('error al cargar Stats.csv', e);
-  }
 }
 
 function getSpecimenId() {
@@ -135,7 +106,7 @@ function replacePlaceholders(data, specimen) {
       }
       return undefined;
     }
-    return text.replace(/\(([^)]+)\)/g, (m,k) => {
+    return text.replace(/\(([^)]+)\)/g, (m, k) => {
       k = cleanKey(k);
       if (k === 'ID') {
         if (text.includes('larva_')) {
@@ -165,14 +136,22 @@ function replacePlaceholders(data, specimen) {
         }
       }
       if (k === 'spx100') {
-        const spValue = parseInt(lookup('spx100')) || 0;
-        const speedF = (spValue > 0 ? 10 / (spValue / 100) : 0).toFixed(2);
-        return speedF;
+        const spValue = parseInt(lookup('spX100') || lookup('spx100')) || 0;
+        return (spValue > 0 ? 10 / (spValue / 100) : 0).toFixed(2);
       }
+      
+      // Mapeo explicito de llaves JSON para placeholders del HTML
+      if (k === 'Name') return lookup('name');
+      if (k === 'Description') return lookup('description');
+      if (k === 'Attack1p_name') return lookup('attack1pName');
+      if (k === 'Attack2p_name') return lookup('attack2pName');
+      if (k === 'lifepoint') return lookup('lifePoint');
+
       const val = lookup(k);
       return val !== undefined ? val : m;
     });
   }
+
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
   let node;
   while (node = walker.nextNode()) {
@@ -203,18 +182,17 @@ function fillGenesRow(dnaString) {
   });
 }
 
-function fillMutantInfo(id) {
-  let data = null;
-  const candidates = [id, 'Specimen_' + id, id.replace(/^Specimen_/, ''), 'Specimen_' + id.replace(/^Specimen_/, '')];
-  for (const k of candidates) {
-    if (k && statsData[k]) { data = statsData[k]; break; }
-  }
+async function fillMutantInfo(id) {
+  const data = await fetchSpecimenData(id);
+  
   if (!data) {
-    alert('Specimen no encontrado: ' + id);
+    alert('Specimen no encontrado en API: ' + id);
     return;
   }
+
   const nameEl = document.querySelector('.mutant-info h2');
-  if (nameEl) nameEl.textContent = data.Name;
+  if (nameEl) nameEl.textContent = data.name;
+  
   const typeImg = document.querySelector('.mutant-type-image');
   if (typeImg) {
     const typeVal = (data.type || '').trim();
@@ -227,12 +205,12 @@ function fillMutantInfo(id) {
       typeImg.style.display = 'none';
     }
   }
-  fillGenesRow(data.dna || data.DNA);
+
+  fillGenesRow(data.dna);
   replacePlaceholders(data, id);
 
   try {
-    const specimenKey = data.Specimen || data.specimen || data.Name || id;
-    const applies = (abilitiesConfig[specimenKey] || abilitiesConfig[id] || 'both').toLowerCase();
+    const applies = (abilitiesConfig[id] || 'both').toLowerCase();
     const geneSections = document.querySelectorAll('.gene-section');
     if (geneSections && geneSections.length >= 2) {
       const firstAbilityRows = geneSections[0].querySelectorAll('.ability-row');
@@ -256,7 +234,7 @@ function fillMutantInfo(id) {
   }
 
   try {
-    const unlock = data.unlockAttack || data.unlockattack || '';
+    const unlock = data.unlockAttack || '';
     const mapping = parseUnlockAttack(unlock);
     const atk1gene = mapping['1'] || mapping['1p'] || null;
     const atk2gene = mapping['2'] || mapping['2p'] || null;
@@ -278,6 +256,7 @@ function fillMutantInfo(id) {
       }
       return null;
     }
+
     if (headerImgs && headerImgs.length > 0) {
       if (headerImgs[0]) {
         const url1 = geneToIcon(atk1gene, isAtk1Aoe) || headerImgs[0].getAttribute('data-src') || headerImgs[0].src;
@@ -295,107 +274,8 @@ function fillMutantInfo(id) {
   }
 }
 
-function findMutantFromCalcId(id) {
-  if (!window.BloggerMutants || typeof window.BloggerMutants.getMutantFromCsv !== 'function') return null;
-  const candidate = String(id || '').trim();
-  if (!candidate) return null;
-  let mutant = window.BloggerMutants.getMutantFromCsv(candidate);
-  if (mutant) return mutant;
-  const normalized = candidate.replace(/^specimen_/i, '');
-  if (normalized !== candidate) {
-    mutant = window.BloggerMutants.getMutantFromCsv(normalized);
-    if (mutant) return mutant;
-  }
-  if (!/^specimen_/i.test(candidate)) {
-    mutant = window.BloggerMutants.getMutantFromCsv('Specimen_' + candidate);
-    if (mutant) return mutant;
-  }
-  return null;
-}
-
-async function ensureMutantStatsLoaded() {
-  if (!window.BloggerMutants) return false;
-  if (mutantStatsCsvLoaded) return true;
-  try {
-    await window.BloggerMutants.loadStatsCsv(statsUrl);
-    mutantStatsCsvLoaded = true;
-    return true;
-  } catch (e) {
-    console.error('error loading mutant stats csv', e);
-    return false;
-  }
-}
-
-function renderCalcMessage(message) {
-  const el = document.getElementById('calcMessage');
-  if (el) el.textContent = message || '';
-}
-
-function renderCalcResults(result) {
-  const setText = (id, value) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value != null ? String(value) : '-';
-  };
-  setText('calcLife', result.lifeF);
-  setText('calcSpeed', result.speedF);
-  setText('calcAtk1', result.atk1F);
-  setText('calcAtk2', result.atk2F);
-  setText('calcAtk1Ability', result.atk1AbilityF);
-  setText('calcAtk2Ability', result.atk2AbilityF);
-}
-
-function renderCalcUsedSpecimen(specimen) {
-  const el = document.getElementById('calcUsedSpecimen');
-  if (el) el.textContent = specimen || 'desconocido';
-}
-
-async function calculateStats() {
-  const specimenInput = document.getElementById('calcSpecimenInput');
-  const levelInput = document.getElementById('calcLevelInput');
-  if (!levelInput) return;
-  const specimenId = (specimenInput ? specimenInput.value.trim() : '') || getSpecimenId();
-  renderCalcUsedSpecimen(specimenId);
-  const levelValue = Math.max(25, parseInt(levelInput.value, 10) || 25);
-  levelInput.value = levelValue;
-  if (!specimenId) {
-    renderCalcMessage('Ingrese un ID válido.');
-    return;
-  }
-  renderCalcMessage('Cargando datos...');
-  const loaded = await ensureMutantStatsLoaded();
-  if (!loaded) {
-    renderCalcMessage('No se pudo cargar la base de datos de stats.');
-    return;
-  }
-  const mutant = findMutantFromCalcId(specimenId);
-  if (!mutant) {
-    renderCalcMessage('Mutant no encontrado: ' + specimenId);
-    return;
-  }
-  renderCalcMessage('');
-  const result = window.BloggerMutants.calculateMutantStats(mutant, levelValue, 'platinum', 0);
-  renderCalcResults(result);
-}
-
-function initCalcSection() {
-  const button = document.getElementById('calcButton');
-  const levelInput = document.getElementById('calcLevelInput');
-  if (button) button.addEventListener('click', calculateStats);
-  if (levelInput) {
-    levelInput.addEventListener('change', () => {
-      if (parseInt(levelInput.value, 10) < 25) levelInput.value = 25;
-    });
-  }
-  const specimenInput = document.getElementById('calcSpecimenInput');
-  if (specimenInput) specimenInput.value = getSpecimenId();
-  renderCalcUsedSpecimen(getSpecimenId());
-  calculateStats();
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
   await loadAbilitiesCsv('https://raw.githubusercontent.com/GalaxyDegen01/dbmgrouplabs/refs/heads/main/abilitiesconfig.csv');
-  await loadStatsCsv();
   const id = getSpecimenId();
-  if (id) fillMutantInfo(id);
-  initCalcSection();
+  if (id) await fillMutantInfo(id);
 });
