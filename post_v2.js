@@ -62,13 +62,11 @@
 
 async function fetchSpecimenData(id) {
   const targetId = id.trim();
-  // Consulta directa a Alwaysdata (HTTPS nativo)
   const apiUrl = `https://mgroup.alwaysdata.net/api/v1/specimens/${targetId}`;
 
   try {
     let res = await fetch(apiUrl);
 
-    // Reintento en minúsculas si el ID original no devuelve 200 OK
     if (!res.ok) {
       res = await fetch(`https://mgroup.alwaysdata.net/api/v1/specimens/${targetId.toLowerCase()}`);
     }
