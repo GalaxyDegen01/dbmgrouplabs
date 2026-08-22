@@ -22,7 +22,6 @@
     }
   });
 
-  var apiBaseUrl = 'https://corsproxy.io/?' + encodeURIComponent('http://mgfree.rf.gd/api/v1/specimens/');
   var defaultSpecimen = 'Specimen_A_01';
   var abilitiesConfig = {};
   var genesMap = {
@@ -60,26 +59,26 @@
     }
   }
 
-async function fetchSpecimenData(id) {
-  const targetId = id.trim();
-  const apiUrl = `https://mgroup.alwaysdata.net/api/v1/specimens/${targetId}`;
+  async function fetchSpecimenData(id) {
+    const targetId = id.trim();
+    const apiUrl = `https://mgroup.alwaysdata.net/api/v1/specimens/${targetId}`;
 
-  try {
-    let res = await fetch(apiUrl);
+    try {
+      let res = await fetch(apiUrl);
 
-    if (!res.ok) {
-      res = await fetch(`https://mgroup.alwaysdata.net/api/v1/specimens/${targetId.toLowerCase()}`);
+      if (!res.ok) {
+        res = await fetch(`https://mgroup.alwaysdata.net/api/v1/specimens/${targetId.toLowerCase()}`);
+      }
+
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
+      const data = await res.json();
+      return data;
+    } catch (e) {
+      console.error(`Error al consultar la API para ${targetId}:`, e);
+      return null;
     }
-
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error(`Error al consultar la API para ${targetId}:`, e);
-    return null;
   }
-}
 
   function parseUnlockAttack(unlockAttack) {
     const genes = {};
@@ -107,7 +106,7 @@ async function fetchSpecimenData(id) {
   function replacePlaceholders(data, specimen) {
     function replacer(text) {
       function cleanKey(k) { return k.replace(/\)+$/, ''); }
-      
+
       function lookup(k) {
         if (!data) return undefined;
         if (data[k] !== undefined) return data[k];
@@ -196,7 +195,7 @@ async function fetchSpecimenData(id) {
 
   async function fillMutantInfo(id) {
     const data = await fetchSpecimenData(id);
-    
+
     if (!data) {
       alert('Specimen no encontrado en API: ' + id);
       return;
@@ -204,7 +203,7 @@ async function fetchSpecimenData(id) {
 
     const nameEl = document.querySelector('.mutant-info h2');
     if (nameEl && data.name) nameEl.textContent = data.name;
-    
+
     const typeImg = document.querySelector('.mutant-type-image');
     if (typeImg) {
       const typeVal = (data.type || '').trim();
