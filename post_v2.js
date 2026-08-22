@@ -63,40 +63,24 @@
 async function fetchSpecimenData(id) {
   const targetId = id.trim();
   const rawUrl = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId;
+  
+  // Usamos allorigins.win que no lanza bloqueos 403 de CORS
+  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(rawUrl);
 
-  // Lista de proxies de respaldo
-  const proxies = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
-    'https://proxy.cors.sh/'
-  ];
-
-  for (const proxy of proxies) {
-    try {
-      const fullUrl = proxy.includes('allorigins') 
-        ? proxy + encodeURIComponent(rawUrl) 
-        : proxy + encodeURIComponent(rawUrl);
-
-      const res = await fetch(fullUrl);
-      if (res.ok) {
-        const data = await res.json();
-        return data; // Si funciona, retorna los datos de inmediato
-      }
-    } catch (e) {
-      console.warn(`Proxy ${proxy} falló, intentando el siguiente...`);
-    }
-  }
-
-  // Intento en minúsculas como respaldo final
   try {
-    const rawUrlLower = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId.toLowerCase();
-    const resLower = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(rawUrlLower));
-    if (resLower.ok) return await resLower.json();
-  } catch (e) {
-    console.error('Error al consultar la API:', e);
-  }
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error(`HTTP status: ${res.status}`);
 
-  return null;
+    const wrapper = await res.json();
+    if (!wrapper.contents) return null;
+
+    // AllOrigins devuelve el JSON dentro del campo 'contents'
+    const data = JSON.parse(wrapper.contents);
+    return data;
+  } catch (e) {
+    console.error(`Error al consultar la API para ${targetId}:`, e);
+    return null;
+  }
 }
 
   function parseUnlockAttack(unlockAttack) {
