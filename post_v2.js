@@ -62,29 +62,41 @@
 
 async function fetchSpecimenData(id) {
   const targetId = id.trim();
-  // Formamos la URL limpia del backend
   const rawUrl = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId;
-  // Codificamos la URL completa para el proxy
-  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(rawUrl);
 
-  try {
-    let res = await fetch(proxyUrl);
-    
-    // Si falla el primer intento, probamos en minúsculas
-    if (!res.ok) {
-      const rawUrlLower = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId.toLowerCase();
-      const proxyUrlLower = 'https://corsproxy.io/?' + encodeURIComponent(rawUrlLower);
-      res = await fetch(proxyUrlLower);
+  // Lista de proxies de respaldo
+  const proxies = [
+    'https://api.allorigins.win/raw?url=',
+    'https://corsproxy.io/?',
+    'https://proxy.cors.sh/'
+  ];
+
+  for (const proxy of proxies) {
+    try {
+      const fullUrl = proxy.includes('allorigins') 
+        ? proxy + encodeURIComponent(rawUrl) 
+        : proxy + encodeURIComponent(rawUrl);
+
+      const res = await fetch(fullUrl);
+      if (res.ok) {
+        const data = await res.json();
+        return data; // Si funciona, retorna los datos de inmediato
+      }
+    } catch (e) {
+      console.warn(`Proxy ${proxy} falló, intentando el siguiente...`);
     }
-
-    if (!res.ok) throw new Error(`HTTP status: ${res.status}`);
-
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    console.error(`Error al consultar la API para ${targetId}:`, e);
-    return null;
   }
+
+  // Intento en minúsculas como respaldo final
+  try {
+    const rawUrlLower = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId.toLowerCase();
+    const resLower = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(rawUrlLower));
+    if (resLower.ok) return await resLower.json();
+  } catch (e) {
+    console.error('Error al consultar la API:', e);
+  }
+
+  return null;
 }
 
   function parseUnlockAttack(unlockAttack) {
