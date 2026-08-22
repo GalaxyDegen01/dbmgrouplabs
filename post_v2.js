@@ -60,20 +60,32 @@
     }
   }
 
-  async function fetchSpecimenData(id) {
-    try {
-      let res = await fetch(`${apiBaseUrl}${id}`);
-      if (!res.ok) {
-        res = await fetch(`${apiBaseUrl}${id.toLowerCase()}`);
-      }
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      return data;
-    } catch (e) {
-      console.error(`Error al consultar la API para ${id}:`, e);
-      return null;
+async function fetchSpecimenData(id) {
+  const targetId = id.trim();
+  // Formamos la URL limpia del backend
+  const rawUrl = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId;
+  // Codificamos la URL completa para el proxy
+  const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(rawUrl);
+
+  try {
+    let res = await fetch(proxyUrl);
+    
+    // Si falla el primer intento, probamos en minúsculas
+    if (!res.ok) {
+      const rawUrlLower = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId.toLowerCase();
+      const proxyUrlLower = 'https://corsproxy.io/?' + encodeURIComponent(rawUrlLower);
+      res = await fetch(proxyUrlLower);
     }
+
+    if (!res.ok) throw new Error(`HTTP status: ${res.status}`);
+
+    const data = await res.json();
+    return data;
+  } catch (e) {
+    console.error(`Error al consultar la API para ${targetId}:`, e);
+    return null;
   }
+}
 
   function parseUnlockAttack(unlockAttack) {
     const genes = {};
