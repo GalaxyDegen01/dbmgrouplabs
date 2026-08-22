@@ -20,11 +20,11 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 
-// Configuración global y mapeos
-const apiBaseUrl = 'http://mgfree.rf.gd/api/v1/specimens/';
-const defaultSpecimen = 'Specimen_A_01';
-let abilitiesConfig = {};
-let genesMap = {
+// Usamos var para prevenir 'Identifier has already been declared' si se carga múltiples veces
+var apiBaseUrl = 'http://mgfree.rf.gd/api/v1/specimens/';
+var defaultSpecimen = 'Specimen_A_01';
+var abilitiesConfig = {};
+var genesMap = {
   'A_AOE': 'https://i.imgur.com/sIcJZzv.png',
   'A': 'https://i.imgur.com/rMC3BeM.png',
   'NEUTRE_AOE': 'https://i.imgur.com/2YSPY07.png',
@@ -105,7 +105,6 @@ function replacePlaceholders(data, specimen) {
   function replacer(text) {
     function cleanKey(k) { return k.replace(/\)+$/, ''); }
     
-    // Búsqueda insensible a mayúsculas/minúsculas en el JSON recibido
     function lookup(k) {
       if (data[k] !== undefined) return data[k];
       const lower = k.toLowerCase();
