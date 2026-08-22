@@ -103,7 +103,7 @@
     return params.get('specimen') || defaultSpecimen;
   }
 
-  function replacePlaceholders(data, specimen) {
+function replacePlaceholders(data, specimen) {
     function replacer(text) {
       function cleanKey(k) { return k.replace(/\)+$/, ''); }
 
@@ -121,9 +121,15 @@
         k = cleanKey(k);
 
         if (k === 'ID') {
-          let v = specimen.toLowerCase();
-          if (v.startsWith('specimen_')) v = v.substr(9);
-          return v;
+          let fullId = specimen.toLowerCase(); // ej: "specimen_fa_14"
+          let shortId = fullId.startsWith('specimen_') ? fullId.substr(9) : fullId; // ej: "fa_14"
+
+          // Si el texto circundante ya incluye "larva_" antes del placeholder, usamos el id corto
+          if (text.includes('larva_(')) {
+            return shortId;
+          }
+          // En cualquier otro caso (como thumbnails), usamos el id completo
+          return fullId;
         }
 
         if (k === 'type') {
