@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // Usamos var para prevenir 'Identifier has already been declared' si se carga múltiples veces
-var apiBaseUrl = 'http://mgfree.rf.gd/api/v1/specimens/';
+var apiBaseUrl = 'https://corsproxy.io/?' + encodeURIComponent('http://mgfree.rf.gd/api/v1/specimens/');
 var defaultSpecimen = 'Specimen_A_01';
 var abilitiesConfig = {};
 var genesMap = {
