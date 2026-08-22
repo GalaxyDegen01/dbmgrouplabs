@@ -59,10 +59,16 @@ async function loadAbilitiesCsv(url) {
   }
 }
 
-// Función principal para consumir tu API REST
+// Función principal para consumir la API con reintento en minúsculas
 async function fetchSpecimenData(id) {
   try {
-    const res = await fetch(`${apiBaseUrl}${id}`);
+    let res = await fetch(`${apiBaseUrl}${id}`);
+    
+    // Si la ID con mayúsculas/formato original no existe (404), intentamos en minúsculas
+    if (!res.ok) {
+      res = await fetch(`${apiBaseUrl}${id.toLowerCase()}`);
+    }
+
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
     const data = await res.json();
     return data;
@@ -98,6 +104,8 @@ function getSpecimenId() {
 function replacePlaceholders(data, specimen) {
   function replacer(text) {
     function cleanKey(k) { return k.replace(/\)+$/, ''); }
+    
+    // Búsqueda insensible a mayúsculas/minúsculas en el JSON recibido
     function lookup(k) {
       if (data[k] !== undefined) return data[k];
       const lower = k.toLowerCase();
@@ -106,22 +114,23 @@ function replacePlaceholders(data, specimen) {
       }
       return undefined;
     }
+
     return text.replace(/\(([^)]+)\)/g, (m, k) => {
       k = cleanKey(k);
+
       if (k === 'ID') {
-        if (text.includes('larva_')) {
-          let v = specimen.toLowerCase();
-          if (v.startsWith('specimen_')) v = v.substr(9);
-          return v;
-        }
-        return specimen.toLowerCase();
+        let v = specimen.toLowerCase();
+        if (v.startsWith('specimen_')) v = v.substr(9);
+        return v;
       }
+
       if (k === 'type') {
         const t = (lookup('type') || '').trim();
         return t.toLowerCase();
       }
+
       if (k === 'ability' || k === 'abilities') {
-        const abil = lookup('abilities') || '';
+        const abil = lookup('abilities') || lookup('ability') || '';
         const firstAbilityEntry = abil.split(';')[0];
         let fullAbilityName = firstAbilityEntry.split(':')[1] || firstAbilityEntry;
         if (fullAbilityName === 'ability_regen') {
@@ -132,20 +141,21 @@ function replacePlaceholders(data, specimen) {
         } else {
           let nameOnly = fullAbilityName.replace(/^ability_/, '');
           if (nameOnly === 'regen') nameOnly = 'regenerate';
-          return nameOnly.charAt(0).toUpperCase() + nameOnly.slice(1);
+          return nameOnly ? (nameOnly.charAt(0).toUpperCase() + nameOnly.slice(1)) : '';
         }
       }
+
       if (k === 'spx100') {
         const spValue = parseInt(lookup('spX100') || lookup('spx100')) || 0;
-        return (spValue > 0 ? 10 / (spValue / 100) : 0).toFixed(2);
+        return (spValue > 0 ? (10 / (spValue / 100)).toFixed(2) : '0');
       }
-      
-      // Mapeo explicito de llaves JSON para placeholders del HTML
-      if (k === 'Name') return lookup('name');
-      if (k === 'Description') return lookup('description');
-      if (k === 'Attack1p_name') return lookup('attack1pName');
-      if (k === 'Attack2p_name') return lookup('attack2pName');
-      if (k === 'lifepoint') return lookup('lifePoint');
+
+      // Mapeo flexible de alias
+      if (k === 'Name') return lookup('name') || '';
+      if (k === 'Description') return lookup('description') || '';
+      if (k === 'Attack1p_name') return lookup('attack1pName') || lookup('attack1p_name') || '';
+      if (k === 'Attack2p_name') return lookup('attack2pName') || lookup('attack2p_name') || '';
+      if (k === 'lifepoint') return lookup('lifePoint') || lookup('lifepoint') || '';
 
       const val = lookup(k);
       return val !== undefined ? val : m;
@@ -191,7 +201,7 @@ async function fillMutantInfo(id) {
   }
 
   const nameEl = document.querySelector('.mutant-info h2');
-  if (nameEl) nameEl.textContent = data.name;
+  if (nameEl && data.name) nameEl.textContent = data.name;
   
   const typeImg = document.querySelector('.mutant-type-image');
   if (typeImg) {
