@@ -62,20 +62,20 @@
 
 async function fetchSpecimenData(id) {
   const targetId = id.trim();
-  const rawUrl = 'http://mgfree.rf.gd/api/v1/specimens/' + targetId;
-  
-  // Usamos allorigins.win que no lanza bloqueos 403 de CORS
-  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(rawUrl);
+  // Consulta directa a Alwaysdata (HTTPS nativo)
+  const apiUrl = `https://mgroup.alwaysdata.net/api/v1/specimens/${targetId}`;
 
   try {
-    const res = await fetch(proxyUrl);
-    if (!res.ok) throw new Error(`HTTP status: ${res.status}`);
+    let res = await fetch(apiUrl);
 
-    const wrapper = await res.json();
-    if (!wrapper.contents) return null;
+    // Reintento en minúsculas si el ID original no devuelve 200 OK
+    if (!res.ok) {
+      res = await fetch(`https://mgroup.alwaysdata.net/api/v1/specimens/${targetId.toLowerCase()}`);
+    }
 
-    // AllOrigins devuelve el JSON dentro del campo 'contents'
-    const data = JSON.parse(wrapper.contents);
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+
+    const data = await res.json();
     return data;
   } catch (e) {
     console.error(`Error al consultar la API para ${targetId}:`, e);
